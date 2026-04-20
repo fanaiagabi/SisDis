@@ -1,162 +1,109 @@
-# 📘 Resumo — VRing: Detector de Falhas em Anel
+# Resumo: VRing — Detector de Falhas em Anel
 
 ---
 
-## 🔹 O que é o VRing
+## O que é o VRing
 
-O **VRing** é um algoritmo de detecção de falhas baseado em:
-- Um **anel virtual (lógico)** de processos  
-- Identificadores de `0` até `(N-1)` com aritmética módulo  
+Os processos formam um **anel virtual (lógico)**. Cada processo tem um identificador sequencial de 0 até (N-1), com operação módulo (0 segue N-1). O anel **resiste a falhas**: um processo forma enlace com o processo sem-falha *seguinte*.
 
-📌 Característica principal:
-- O anel **se adapta a falhas**
-- Cada processo se conecta ao **próximo processo sem-falha**
+O algoritmo foi originalmente proposto no contexto de **Adaptive Distributed System-Level Diagnosis (Adaptive-DSD)** — um detector de falhas *push* onde processos executam testes entre si. O objetivo é determinar os estados de todos os processos (quais estão falhos). O modelo de falhas é **crash**.
 
 ---
 
-📌 Origem:
-- Proposto no contexto de **Adaptive Distributed System-Level Diagnosis (Adaptive-DSD)**  
-- Detector do tipo **push**  
-- Baseado em **testes entre processos**
+## Modelo de Sistema e Premissas
+
+O sistema S consiste de N processos: S = {0, 1, 2, …, (N-1)}. Cada processo pode estar **correto** ou **falho**. O sistema é assíncrono — o resultado de um teste pode ser: **correto** ou **suspeito**.
+
+Os canais de comunicação são perfeitos. Apesar de os processos formarem um anel virtual, o sistema subjacente é **fully-connected** (qualquer processo é capaz de testar qualquer outro).
+
+O algoritmo é apresentado no modelo **GST (Global Stabilization Time)**: o sistema inicia assíncrono e assim permanece até um instante a partir do qual se torna síncrono para sempre.
+
+Uma premissa simplificadora: o próximo evento só ocorre após o evento anterior ter sido detectado. Evento: ou um processo correto falha ou vice-versa.
 
 ---
 
-## 🔹 Modelo de Sistema e Premissas
+## O Grafo de Testes
 
-Sistema:
+O grafo de testes G = (V, T) tem como vértices os processos do sistema em V. O conjunto de arcos (arestas direcionadas) T representa os testes executados: existe um arco (a, b) em T se a testa b.
 
-S = {0, 1, 2, …, (N-1)}
-
-
----
-
-### 🔸 Características
-
-- Cada processo pode estar:
-  - Correto  
-  - Falho (modelo **crash**)  
-
-- Sistema **assíncrono**
-  - Resultado de testes:
-    - correto  
-    - suspeito  
+**No algoritmo VRing:** no anel consideramos apenas arcos correspondentes a testes de processos corretos.
 
 ---
 
-### 🔸 Comunicação
+## Intervalos vs. Rodadas de Testes
 
-- Canais **perfeitos**
-- Sistema subjacente:
-  - **Fully-connected**
-- Anel é apenas **lógico**
+**Intervalo de testes:** intervalo de tempo constante, pré-definido, marcado no relógio local de cada processo (ex: 30 segundos ou 10 milissegundos).
 
----
+**Rodada de testes:** intervalo de tempo em que todo processo sem-falha testou pelo menos um outro processo sem-falha — ou testou todos os demais processos falhos.
 
-### 🔸 Modelo Temporal
-
-- Baseado em **GST (Global Stabilization Time)**:
-  - Início: assíncrono  
-  - Após GST: síncrono  
+Em um sistema real é difícil identificar as rodadas de testes pois não há relógio global. Quem determina a rodada é o **processo mais lento**.
 
 ---
 
-### 🔸 Premissa Importante
+## O Vetor State[N]
 
-- Um novo evento só ocorre após o anterior ser detectado  
+Os processos mantêm informações de estado no vetor State[N] — um contador de eventos (*timestamp*):
 
-📌 Evento:
-- Processo falha  
-- Processo se recupera  
+- **-1** → estado unknown (desconhecido)
+- **0** → estado correto
+- **1** → processo falho
 
----
-
-## 🔹 Grafo de Testes
-
-Representado por:
-
-G = (V, T)
-
-
-- **V** → processos  
-- **T** → testes (arestas direcionadas)  
+Quando um evento é detectado pelo processo j no processo i: **Statej[i]++**. A partir daí: State[i] par = correto; State[i] ímpar = falho.
 
 ---
 
-### 🔸 Interpretação
+## Especificação do Algoritmo
 
-- `(a, b) ∈ T` → processo **a testa b**
-
-📌 No VRing:
-- Consideramos apenas testes entre **processos corretos**
-
----
-
-## 🔹 Intervalos vs. Rodadas de Testes
-
-### 🔸 Intervalo de Testes
-- Tempo fixo  
-- Definido localmente  
-- Ex: 10 ms, 30 s  
-
----
-
-### 🔸 Rodada de Testes
-- Todos os processos corretos:
-  - Testaram outro processo correto  
-  - Ou testaram todos os falhos  
+```
+// executado pelo processo i, a cada intervalo de testes
+Início
+  j ← i;
+  repita
+    j ← (j+1) mod N;
+    teste o processo j;
+    se ocorreu um evento em j então Statei[j]++;
+    se j está correto
+      então obtenha Statej[];
+        para todo k não testado neste intervalo
+          atualize Statei[k] ← Statej[k];
+  até (encontrar j correto) ou (testar todos falhos);
+Fim.
+```
 
 ---
 
-📌 Observação:
-- Em sistemas reais:
-  - Não há relógio global  
-  - Rodadas são definidas pelo **processo mais lento**
+## Fluxo de Informações
+
+Os resultados de testes fluem no **sentido oposto** dos testes. Quando um processo correto testa outro processo correto, pode obter as informações de diagnóstico que o processo correto testado possui. Após 1 rodada de testes, todos os processos corretos obtiveram informações de seu processo correto testado.
 
 ---
 
-## 🔹 Vetor de Estados `State[N]`
+## Prova de Correção
 
-Cada processo mantém:
+**Teorema 1:** Em uma rodada de testes do VRing, no grafo de testes G=(V,T) há um caminho direcionado entre quaisquer 2 processos corretos. *(Prova por absurdo — ver slides 33 e 34.)*
 
-State[N]
+**Corolário 1:** Em uma rodada de testes, o grafo G=(V,T) consiste de um **ciclo direcionado conectando todos os processos corretos** de S. Um ciclo direcionado é a única estrutura que satisfaz as condições do Teorema 1 mais o fato de cada processo correto executar 1 único teste em outro processo correto por rodada.
 
-
----
-
-### 🔸 Significado dos valores
-
-- `-1` → desconhecido  
-- `0` → correto  
-- `1` → falho  
+**Teorema 2:** Após N rodadas de testes, a entrada Statei[j] é idêntica para todos os processos 0 ≤ i < N. O caminho mais longo no ciclo tem N vértices, portanto em no máximo N rodadas todos os processos mantêm o mesmo valor.
 
 ---
 
-### 🔸 Atualização
+## Latência e Número de Testes
 
-Quando o processo `j` detecta evento em `i`:
+- **Latência:** número de rodadas de testes para completar a detecção de 1 evento.
+  - Pior caso: **N rodadas de testes**
+  - Melhor caso: **1 rodada de testes**
 
-Statej[i]++
+- **Número de testes por rodada:** no máximo **N testes** (cada processo é testado no máximo 1 vez). Isso é **ótimo** matematicamente: impossível um algoritmo que utilize menos de N testes, pois cada processo tem que ser testado pelo menos 1 vez por rodada.
 
-
----
-
-### 🔸 Interpretação
-
-- Valor **par** → processo correto  
-- Valor **ímpar** → processo falho  
+- **Tolerância a falhas:** mesmo que apenas 1 único processo esteja correto, ele detecta todos os demais. Portanto **t = N-1**. Esse resultado é ótimo: não tem como tolerar mais falhas que N-1.
 
 ---
 
-📌 Ideia:
-➡️ O contador funciona como um **timestamp de eventos**
+## Antes do GST
+
+Até o sistema estabilizar, podem acontecer **falsas suspeitas**. Após uma falsa suspeita, um processo continua testando — aumenta o número de testes. No pior caso, todos os processos estão corretos mas todos suspeitam de todos, e o algoritmo se transforma na **força-bruta**. Porém, **a latência de detecção de falhas não aumenta**.
 
 ---
 
-## 🧠 Insight Final
-
-O VRing combina:
-- Estrutura lógica simples (**anel**)  
-- Comunicação eficiente (**testes locais**)  
-- Representação compacta (**vetor de estados**)  
-
-➡️ Resultando em um detector de falhas adaptativo e robusto em sistemas distribuídos.
+> **Nota:** Este resumo usa exclusivamente os termos e conteúdos presentes nos slides. Nenhuma informação externa foi adicionada.

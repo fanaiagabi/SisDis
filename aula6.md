@@ -1,212 +1,114 @@
-# 📘 Resumo — VCube: Um Algoritmo Distribuído Hierárquico
+i# Resumo: VCube — Um Algoritmo Distribuído Hierárquico
 
 ---
 
-## 🔹 A Latência do VRing
+## A Latência do Algoritmo VRing
 
-- Pior caso: **N rodadas de testes**
-- Cada rodada: todos os processos corretos testam ao menos 1 processo correto  
+A latência do algoritmo VRing é no pior caso de **N rodadas de testes**, sendo N o número total de processos. Um evento corresponde a um processo correto se tornar falho ou vice-versa. Uma rodada de testes é o intervalo de tempo no qual todos os processos corretos testam pelo menos 1 outro processo correto.
 
-📌 Exemplo:
-- `t = 30s`, `N = 100`  
-- Latência ≈ `30 × 100 = 3000s = 50 minutos`
-
-➡️ **Problema:** latência alta
+Para dimensionar o problema: se um intervalo de testes seja de t=30s e N=100, a latência pode chegar a 30\*100=3000s=50min. Como diminuir esta latência?
 
 ---
 
-## 🔹 Estratégias Orientadas a Evento
+## Estratégias Orientadas a Evento
 
-Quando um evento é detectado:
-- Informação deve ser **disseminada a todos os processos corretos**
-
-📌 Conceito:
-- **Reliable Broadcast (Difusão Confiável)**  
-- Custo:  
-
-O(N²)
-
+Ao ser detectado um evento: dispara a disseminação de informação que deve chegar a todos os processos corretos. Transmitir 1 mensagem para ser entregue por todos os processos corretos, mesmo que haja falhas, é **Reliable Broadcast (Difusão Confiável)**. Custo: **O(N²) mensagens**.
 
 ---
 
-## 🔹 Algoritmo da Força Bruta
+## O Algoritmo da Força Bruta
 
-### 🔸 Ideia
-- Todos testam todos em cada rodada  
-
----
-
-### 🔸 Características
-
-- Testes por rodada:
-
-O(N²)
-
-
-- Latência:
-
-1 rodada (ótima)
-
+No VRing os processos estão organizados em anel. No algoritmo distribuído da força bruta, todos os processos testam todos os demais em cada intervalo de testes. O número de testes executados é **O(N²) testes por rodada**, mas a latência é de **apenas 1 rodada de testes no pior caso** — latência ótima (a melhor possível!). Porém o número de testes é muito caro: se N=100, o número de mensagens (testes) é 10.000 (dez mil!). **Super caro!**
 
 ---
 
-📌 Problema:
-- Muito caro em comunicação  
+## O Algoritmo VCube
 
-➡️ Exemplo:
-- `N = 100` → **10.000 testes por rodada**
+Uma alternativa é usar um algoritmo distribuído que seja escalável. O VCube fica "entre" o VRing e a Força-Bruta:
 
----
+- VRing: N testes por rodada, latência N rodadas
+- Força-Bruta: N² testes por rodada, latência 1 rodada
 
-## 🔹 Comparação Geral
-
-| Algoritmo     | Testes por rodada | Latência |
-|--------------|------------------|----------|
-| VRing        | O(N)             | O(N)     |
-| Força Bruta  | O(N²)            | O(1)     |
-| **VCube**    | 🔥 intermediário | 🔥 melhor equilíbrio |
+O **VCube é um algoritmo hierárquico, escalável por definição**.
 
 ---
 
-## 🔹 O Algoritmo VCube
+## VCube: Estratégia de Testes
 
-- Algoritmo **hierárquico**
-- **Escalável**
-- Combina:
-  - Baixa latência  
-  - Baixo custo relativo  
+A ideia central do VCube é hierárquica e cresce dobrando os nodos a cada rodada:
 
----
-
-## 🔹 Estratégia de Testes
-
-Crescimento **exponencial (dobrando)**:
-
-### 🔸 Rodada 1
-- Testes em pares:
-  - `(0↔1), (2↔3), ...`
+- Na **primeira rodada**: pares testam entre si (0↔1, 2↔3, …)
+- Na **segunda rodada**: todos os processos corretos têm informações completas de seus pares — por exemplo, 0 testa 2 e obtém info 3; 2 testa 0 e obtém info 1; e assim por diante
+- Na **terceira rodada**: podemos dobrar os nodos para 8 e completam o diagnóstico
 
 ---
 
-### 🔸 Rodada 2
-- Cada processo já conhece seu par  
-- Testa novos processos e **propaga informação**
+## Topologia Hipercubo
+
+O VCube é baseado na topologia hipercubo. Em um hipercubo de d dimensões há N=2d processos. d é o número de bits necessário para identificar os N processos. Existe uma aresta entre dois vértices (i,j) se os identificadores de i e j **diferem em exatamente 1 bit**.
+
+Exemplos:
+- Hipercubo de 1 dimensão: N=2¹=2 processos
+- Hipercubo de 2 dimensões: N=2²=4 processos
+- Hipercubo de 3 dimensões: N=2³=8 processos
+- Hipercubo de 4 dimensões: dois hipercubos de 8 nodos
+
+O hipercubo tem **diversas propriedades logarítmicas** — logN (logaritmos base 2, sempre). Grau de cada nodo e diâmetro (distância máxima) são logarítmicos. Quando dobra o número de nodos, o incremento é de 1 unidade. Propriedades logarítmicas correspondem a **escalabilidade: funciona bem quando N cresce**.
 
 ---
 
-### 🔸 Rodada 3+
-- Conjunto dobra novamente  
-- Informação se espalha rapidamente  
+## VCube: Muito Mais que Hipercubo
+
+O hipercubo foi muito usado para a construção de arquiteturas paralelas, entre outras aplicações computacionais. O VCube corresponde a um **hipercubo virtual quando todos os processos estão corretos**. A topologia subjacente é *fully-connected*. Quando processos falham, a topologia se reorganiza, mantendo diversas propriedades logarítmicas.
 
 ---
 
-📌 Ideia central:
-➡️ **Propagação logarítmica de informação**
+## VCube: Clusters de Processos
+
+No VCube os processos são organizados em **clusters** sob o ponto de vista do testador. O tamanho do cluster é sempre uma potência de 2 — há **logN clusters**. A função **C(i,s)** retorna a lista de processos (em ordem) que devem ser testados pelo testador i nos clusters s=1,2,…,logN.
+
+Exemplo completo para N=8 processos:
+
+| s | C(0,s) | C(1,s) | C(2,s) | C(3,s) | C(4,s) | C(5,s) | C(6,s) | C(7,s) |
+|---|--------|--------|--------|--------|--------|--------|--------|--------|
+| 1 | 1 | 0 | 3 | 2 | 5 | 4 | 7 | 6 |
+| 2 | 2,3 | 3,2 | 0,1 | 1,0 | 6,7 | 7,6 | 4,5 | 5,4 |
+| 3 | 4,5,6,7 | 5,6,7,4 | 6,7,4,5 | 7,4,5,6 | 0,1,2,3 | 1,2,3,0 | 2,3,0,1 | 3,0,1,2 |
 
 ---
 
-## 🔹 Topologia: Hipercubo
+## Especificação do Algoritmo VCube
 
-### 🔸 Definição
+```
+Algoritmo VCube executado pelo processo i:
+  repita
+    para s de 1 até logN e voltando a 1 faça
+      repita
+        execute um teste no próximo processo de C(i,s);
+        se o processo foi testado correto
+          então obtenha info cluster s e atualize Statei[N];
+      até ter testado um processo correto ou todos falhos;
+      durma até o próximo intervalo de testes;
+    fim-para;
+  para-sempre;
+```
 
-- Número de processos:
-
-N = 2^d
-
-
-- `d` = número de bits do identificador  
-
----
-
-### 🔸 Conexões
-
-- Dois nodos estão conectados se:
-  - Diferem em **1 bit**
-
----
-
-### 🔸 Exemplos
-
-- `d = 1` → 2 processos  
-- `d = 2` → 4 processos  
-- `d = 3` → 8 processos  
-- `d = 4` → 16 processos  
+Cada processo i mantém o vetor local Statei[N]. Em cada intervalo, um processo testa um dos seus logN clusters. Testes são executados sequencialmente em cada cluster, até um processo correto ser testado. Ao testar um processo correto: testador obtém informações sobre todos os demais processos do cluster que não testou neste intervalo.
 
 ---
 
-### 🔸 Propriedades
+## Propriedades do VCube: Latência e Número de Testes
 
-- Grau do nodo:
+**Latência no pior caso:** não é logN, mas **log²N rodadas de testes** — detalhes na próxima aula.
 
-log N
-
-
-- Diâmetro:
-
-log N
-
+**Número máximo de testes:** considere que todos os processos do maior cluster (com N/2 processos) estão falhos. Os N/2 testadores testam todos os N/2 falhos: **N²/4 = O(N²)**. Caso especial, mas este é o número de testes da força-bruta — por isso outra estratégia foi definida: próxima aula.
 
 ---
 
-📌 Consequência:
-➡️ Crescimento eficiente (escalável)
+## Referência Original
+
+"A Hierarchical Adaptive Distributed System-Level Diagnosis Algorithm," *IEEE Transactions on Computers*, Vol. 47, No. 1, 1998.
 
 ---
 
-## 🔹 VCube vs Hipercubo
-
-- VCube = **hipercubo virtual**
-- Sistema real:
-  - Fully-connected  
-- Em caso de falhas:
-  - Estrutura se **reorganiza dinamicamente**
-
----
-
-📌 Mantém propriedades:
-- Logarítmicas  
-- Escaláveis  
-
----
-
-## 🔹 Clusters no VCube
-
-Processos organizados em **clusters hierárquicos**
-
----
-
-### 🔸 Características
-
-- Tamanho do cluster:
-
-2^k
-
-- Número de clusters:
-log N
-
----
-
-### 🔸 Função de Teste
-
-C(i, s)
-
-- Retorna lista de processos que:
-  - Processo `i` deve testar  
-  - No cluster `s`
-
----
-
-📌 Propriedade:
-➡️ Define exatamente **quem testa quem** em cada nível
-
----
-
-## 🧠 Insight Final
-
-O VCube resolve o trade-off clássico:
-
-- ❌ VRing → pouca mensagem, alta latência  
-- ❌ Força Bruta → baixa latência, alto custo  
-- ✅ **VCube → equilíbrio ótimo com comportamento logarítmico**
-
-➡️ Resultado: algoritmo **eficiente e escalável para grandes sistemas distribuídos**
+> **Nota:** Este resumo usa exclusivamente os termos e conteúdos presentes nos slides. As únicas informações adicionadas externamente foram: a explicação sobre o que é "dobrar nodos" na estratégia de testes e a observação de que a tabela C(i,s) parcial do slide 35 foi substituída pela tabela completa do slide 36 — ambas presentes nos slides originais.

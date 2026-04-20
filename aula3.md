@@ -1,180 +1,84 @@
-# 📘 Resumo — Sistemas Distribuídos: Modelos de Enlaces
+# Resumo: Sistemas Distribuídos — Modelos de Enlaces
 
 ---
 
-## 🔹 O Sistema Distribuído
-Um sistema distribuído é composto por:
+## O Sistema Distribuído
 
-S = {p1, p2, …, pN}
-
-
-- Conjunto de processos  
-- Todos executam o **mesmo algoritmo localmente**  
-- Comunicação ocorre via **troca de mensagens**
+Um sistema distribuído é um conjunto de N processos S = {p1, p2,…, pN}. O mesmo algoritmo é executado por todos os processos localmente, e os processos se comunicam trocando mensagens.
 
 ---
 
-## 🔹 Propriedades de Algoritmos Distribuídos
+## Propriedades de Algoritmos Distribuídos
 
-Para provar que um algoritmo funciona:
+Para demonstrar que um algoritmo distribuído "funciona de verdade", provamos sua correção através de propriedades. Existem dois tipos principais:
 
-### 🔸 Safety (Segurança)
-- “Nada de ruim acontece”  
-- Ex: dois processos **nunca** decidem valores diferentes
+**Safety** garante que "nada de ruim acontece". No exemplo do consenso, garante que jamais 2 processos vão decidir por 2 valores diferentes.
 
----
+**Liveness** garante que "algo de bom acontece". Uma forma fácil de garantir safety seria deixar os processos parados — claramente insatisfatório. Liveness garante que os processos efetivamente decidem. Pode ser traduzida como "progressão".
 
-### 🔸 Liveness (Progresso)
-- “Algo de bom acontece”  
-- Garante que o sistema **avança**  
-- Ex: processos eventualmente decidem
+**Fairness** é um terceiro tipo: "justiça", todos os processos têm "direitos" iguais. No exemplo da exclusão mútua distribuída: safety (jamais 2 processos acessam o mesmo recurso simultaneamente), progress (efetivamente algum processo acessa o recurso), e fairness (os diferentes processos têm a mesma chance de acessar o recurso).
 
 ---
 
-### 🔸 Fairness (Justiça)
-- Todos os processos têm chances iguais  
+## A Mensagem
 
-📌 Exemplo: Exclusão Mútua Distribuída
-- Safety → nunca 2 processos acessam simultaneamente  
-- Liveness → algum processo acessa  
-- Fairness → acesso é justo  
+A mensagem tem informações "de controle": identificador do processo origem (source) e destino (destination). Também carrega informações específicas da aplicação: o payload.
+
+O identificador da mensagem consiste do endereço da origem e de um contador de mensagens local — zerado antes da execução do algoritmo e incrementado de 1 a cada mensagem transmitida. Assim, cada mensagem carrega seu identificador (id-origem + contador).
 
 ---
 
-## 🔹 A Mensagem
+## Primitivas de Comunicação
 
-Uma mensagem contém:
+As primitivas básicas são **send(msg)**, **receive(msg)** e **deliver(msg)**. Uma mensagem recebida pode ser descartada (por diversos motivos) ou entregue à aplicação via deliver(). Os endereços de origem e destino podem ser explicitados na primitiva: send(source-id, dest-id, msg).
 
-- **Controle:**
-  - origem (*source*)
-  - destino (*destination*)
-
-- **Payload:**
-  - dados da aplicação  
+As mensagens são transmitidas por canais de comunicação (também chamados de link ou enlace), e a tecnologia não importa — wireless, fibra ótica, cabo coaxial, Internet, rede local, ou mesmo processos na mesma máquina.
 
 ---
 
-### 🔸 Identificador da Mensagem
-- Formado por:
-  - ID do processo origem  
-  - Contador local de mensagens  
+## Modelos de Canais de Comunicação
 
-📌 O contador:
-- Começa em 0  
-- Incrementa a cada envio  
-
-➡️ Garante **unicidade das mensagens**
+**Toda** vez que se descreve um sistema distribuído ou um algoritmo distribuído, deve ser explicitado o modelo de enlace. Os dois modelos mais importantes são:
 
 ---
 
-## 🔹 Primitivas de Comunicação
+### Canal Fair-Loss
 
-- `send(msg)` → envia  
-- `receive(msg)` → recebe  
-- `deliver(msg)` → entrega à aplicação  
+Os enlaces fair-loss podem perder mensagens, mas existe uma boa probabilidade de que uma mensagem transmitida chegue ao destino. Refletem enlaces reais como IP. Suas propriedades são:
 
-📌 Observações:
-- Mensagens podem ser descartadas  
-- Pode-se usar:
-  - `send(source, dest, msg)`
+- **No Creation**: se uma mensagem é recebida pelo processo q, então ela foi efetivamente transmitida pelo processo p.
+- **Duplicação Finita**: se uma mensagem é transmitida um número finito de vezes, não é recebida infinitas vezes.
+- **Fair-Loss**: se uma mensagem é transmitida infinitas vezes pelo processo p, e ambos os processos não falham, a mensagem é recebida infinitas vezes pelo processo q — a probabilidade de recebimento é maior que zero.
 
 ---
 
-## 🔹 Canais de Comunicação
+### Canal Stubborn (Intermediário)
 
-Mensagens trafegam por enlaces (*links*):
-- Internet  
-- Rede local  
-- Fibra  
-- Wireless  
-- Mesmo máquina  
+Construído sobre o enlace fair-loss. Suas propriedades são No-Creation e **Stubborn Delivery**: se o processo p transmite uma mensagem para o processo q, e ambos não falham, então q recebe esta mensagem infinitas vezes — as perdas de mensagens não afetam a comunicação.
 
-📌 O importante é o **modelo do canal**, não a tecnologia
+O algoritmo mantém um conjunto **Sent** e um **TimeDelay**. A cada timeout, retransmite todas as mensagens em Sent. Ao receber uma mensagem, simplesmente faz deliver(msg).
 
 ---
 
-## 🔹 Modelos de Enlaces
+### Canal Perfeito (Confiável)
 
----
+Garante entrega sem duplicação. Suas propriedades são:
 
-### 🔸 Canal Fair-Loss
-Modelo mais próximo da realidade (ex: IP)
-
-#### Propriedades:
 - **No Creation**
-  - Mensagem recebida foi enviada  
+- **No Duplication**: cada mensagem é entregue 1 única vez.
+- **Reliable Delivery**: se p transmite para q, e ambos não falham, q recebe a mensagem *eventually*.
 
-- **Duplicação Finita**
-  - Não há infinitas duplicações  
+> ⚠️ *[Observação externa ao slide]:* A palavra **eventually** em inglês técnico, diferente de "eventualmente" em português, significa que **com certeza vai acontecer** em algum momento — não se sabe quando, mas é garantido 100%.
 
-- **Fair-Loss**
-  - Se enviar infinitas vezes → será recebida infinitas vezes  
+O algoritmo acrescenta ao stubborn um conjunto **Delivered**: ao receber uma mensagem, só faz deliver(msg) se ela ainda não estiver em Delivered, depois a adiciona ao conjunto. Isso garante o No Duplication.
 
-📌 Pode perder mensagens
-
----
-
-### 🔸 Canal Stubborn (Intermediário)
-
-Construído sobre o fair-loss
-
-#### Propriedades:
-- **No Creation**
-- **Stubborn Delivery**
-  - Se enviado → recebido infinitas vezes  
+Uma versão com **ACKs** é mais eficiente na prática: ao receber um ACK, remove a mensagem confirmada do conjunto Sent, parando as retransmissões. Ao receber uma mensagem, sempre manda um ACK — mesmo que já tenha entregue antes.
 
 ---
 
-#### 🔧 Funcionamento:
-- Mantém conjunto `Sent`  
-- Usa timeout para retransmissão  
-- Ao receber:
-  - `deliver(msg)` diretamente  
+## Visão Prática
 
-📌 Ideia:
-➡️ Reenvio contínuo até garantir entrega
-
----
-
-### 🔸 Canal Perfeito (Confiável)
-
-#### Propriedades:
-- **No Creation**
-- **No Duplication**
-  - Mensagem entregue uma única vez  
-- **Reliable Delivery**
-  - Mensagem será entregue **com certeza**
-
----
-
-📌 ⚠️ *Eventually*:
-- Significa que **vai acontecer com certeza**
-- Tempo é desconhecido
-
----
-
-#### 🔧 Implementação:
-- Adiciona conjunto `Delivered`  
-- Só entrega mensagens novas  
-
----
-
-### 🔸 Otimização com ACK
-- Ao receber → envia ACK  
-- Ao receber ACK → remove de `Sent`  
-- Evita retransmissões desnecessárias  
-
----
-
-## 🔹 Visão Prática
-
-- Canal perfeito → **TCP**  
+- Canal perfeito → **TCP**
 - Canal fair-loss → **UDP / IP**
 
-📌 O TCP pode ser visto como:
-➡️ Uma implementação de canal confiável
-
----
-
-## 🧠 Insight Final
-A construção de sistemas distribuídos confiáveis depende fortemente da **abstração do canal de comunicação** — algoritmos são projetados assumindo garantias específicas desses enlaces.
+O TCP pode ser considerado uma implementação de canal de comunicação perfeito.
